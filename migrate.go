@@ -8,15 +8,6 @@ import (
 
 const table = "dbversion"
 
-var tableCreateSql = "CREATE TABLE " + table + ` ( 
-	id INTEGER PRIMARY KEY AUTOINCREMENT,  
-	description VARCHAR, 
-	applied TIMESTAMP
-);`
-var tableCheckSql = "SELECT * FROM " + table + ";"
-var versionCheckSql = "SELECT id FROM " + table + " ORDER BY id DESC LIMIT 0, 1;"
-var versionInsertSql = "INSERT INTO " + table + "(description, applied) VALUES (?,?);"
-
 type Error struct {
 	description string
 	wrapped     error
@@ -40,13 +31,13 @@ type Context interface {
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 }
 
-func Apply(ctx Context, migrations []Record) (err error) {
-	if err = initialize(ctx); err == nil {
+func Apply(ctx Context, d Dialect, migrations []Record) (err error) {
+	if err = initialize(ctx, d); err == nil {
 		var currentVersion int64
-		if currentVersion, err = dbVersion(ctx); err == nil {
+		if currentVersion, err = dbVersion(ctx, d); err == nil {
 			migrations = migrations[currentVersion:] // only apply what hasnt been been applied already
 			for i, m := range migrations {
-				if err = apply(ctx, m); err != nil {
+				if err = apply(ctx, d, m); err != nil {
 					err = Error{
 						description: fmt.Sprintf("error performing migration \"%s\"", migrations[i].Description),
 						wrapped:     err,
@@ -59,40 +50,40 @@ func Apply(ctx Context, migrations []Record) (err error) {
 	return
 }
 
-func initialize(ctx Context) (err error) {
-	if noVersionTable(ctx) {
-		return createVersionTable(ctx)
+func initialize(ctx Context, d Dialect) (err error) {
+	if noVersionTable(ctx, d) {
+		return createVersionTable(ctx, d)
 	}
-	return nil
+	return
 }
 
-func noVersionTable(ctx Context) bool {
-	rows, table_check := ctx.Query(tableCheckSql)
+func noVersionTable(ctx Context, d Dialect) bool {
+	rows, table_check := ctx.Query(d.TableExists(table))
 	if rows != nil {
 		defer rows.Close()
 	}
 	return table_check != nil
 }
 
-func apply(ctx Context, r Record) (err error) {
+func apply(ctx Context, d Dialect, r Record) (err error) {
 	if err = r.F(ctx); err == nil {
-		err = incrementVersion(ctx, r.Description)
+		err = incrementVersion(ctx, d, r.Description)
 	}
 	return
 }
 
-func createVersionTable(ctx Context) (err error) {
-	_, err = ctx.Exec(tableCreateSql)
+func createVersionTable(ctx Context, d Dialect) (err error) {
+	_, err = ctx.Exec(d.CreateTable(table))
 	return
 }
 
-func incrementVersion(ctx Context, description string) (err error) {
-	_, err = ctx.Exec(versionInsertSql, description, time.Now())
+func incrementVersion(ctx Context, d Dialect, description string) (err error) {
+	_, err = ctx.Exec(d.InsertVersion(table), description, time.Now())
 	return
 }
 
-func dbVersion(ctx Context) (id int64, err error) {
-	row, err := ctx.Query(versionCheckSql)
+func dbVersion(ctx Context, d Dialect) (id int64, err error) {
+	row, err := ctx.Query(d.CheckVersion(table))
 	if row.Next() {
 		err = row.Scan(&id)
 	}

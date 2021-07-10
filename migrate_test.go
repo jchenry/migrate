@@ -27,7 +27,7 @@ func TestCreateVersionTable(t *testing.T) {
 		t.Fail()
 	}
 
-	err = createVersionTable(db)
+	err = createVersionTable(db, Sqlite3())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,9 @@ func TestIncrementVersion(t *testing.T) {
 		t.Fail()
 	}
 
-	err = createVersionTable(db)
+	sl3 := Sqlite3()
+
+	err = createVersionTable(db, sl3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +56,7 @@ func TestIncrementVersion(t *testing.T) {
 	}
 
 	for _, d := range descriptions {
-		err = incrementVersion(db, d)
+		err = incrementVersion(db, sl3, d)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,18 +90,20 @@ func TestDbVersion(t *testing.T) {
 		t.Fail()
 	}
 
-	err = createVersionTable(db)
+	sl3 := Sqlite3()
+
+	err = createVersionTable(db, sl3)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ver, err := dbVersion(db)
+	ver, err := dbVersion(db, sl3)
 	if ver != 0 || err != nil {
 		t.Fatalf("version not 0 as expected (actual %d) or err: %#v", ver, err)
 	}
 
-	err = incrementVersion(db, "Test 1")
-	ver, err = dbVersion(db)
+	err = incrementVersion(db, sl3, "Test 1")
+	ver, err = dbVersion(db, sl3)
 	if ver != 1 {
 		t.Fatalf("version not 1 as expected (actual %d)", ver)
 	}
@@ -119,6 +123,8 @@ func TestApply(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
+
+	sl3 := Sqlite3()
 
 	records :=
 		[]Record{
@@ -144,7 +150,7 @@ func TestApply(t *testing.T) {
 			},
 		}
 
-	err = Apply(db, records)
+	err = Apply(db, sl3, records)
 
 	if err != nil {
 		t.Fatal(err)
@@ -160,8 +166,8 @@ func TestApply(t *testing.T) {
 	}
 
 	// reapply and make sure we dont re-run anything
-	err = Apply(db, records)
-	ver, err := dbVersion(db)
+	err = Apply(db, sl3, records)
+	ver, err := dbVersion(db, sl3)
 	if ver != 2 {
 		t.Fatalf("version not 2 as expected (actual %d)", ver)
 	}
@@ -180,12 +186,12 @@ func TestApply(t *testing.T) {
 		},
 	})
 
-	err = Apply(db, records)
+	err = Apply(db, sl3, records)
 
 	if errors.Unwrap(err) != ishouldntHideUserErrors {
 		t.Fatalf("unexpected error returned that should have been record function error: %#v", err)
 	}
-	ver, err = dbVersion(db)
+	ver, err = dbVersion(db, sl3)
 	if ver != 2 {
 		t.Fatalf("version not 2 as expected (actual %d) after bad record apply", ver)
 	}
