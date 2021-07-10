@@ -1,4 +1,4 @@
-module github.com/jchenry/tmp/migrate
+module github.com/jchenry/migrate
 
 go 1.16
 
