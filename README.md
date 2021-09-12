@@ -36,7 +36,7 @@ records :=
 			},
 		}
 
-	err = migrate.Apply(db, migtate.Sqlite3(), records)
+	err = migrate.Apply(db, migrate.Sqlite3(), records)
     ...
 
 ```
